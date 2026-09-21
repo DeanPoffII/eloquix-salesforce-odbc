@@ -1,0 +1,15 @@
+# Example DSN. Copy into ~/.odbc.ini (user) or /etc/odbc.ini (system).
+#
+# JWT bearer: no stored password, survives password rotation, works headless.
+[Salesforce]
+Driver           = Eloquix Salesforce ODBC Driver
+AuthType         = JWT
+LoginUrl         = https://login.salesforce.com
+ClientId         = <consumer key of your External Client App>
+Username         = integration.user@example.com
+PrivateKeyFile   = /etc/eloquix/salesforce.key
+ApiVersion       = 64.0
+MetadataCacheTTL = 3600
+
+# Sandbox: LoginUrl = https://test.salesforce.com
+# Troubleshooting: LogFile = /tmp/sfodbc.log  and  LogLevel = 3

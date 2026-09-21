@@ -1,0 +1,14 @@
+Copyright (c) 2026 Eloquix Labs. All rights reserved.
+
+This software is proprietary and confidential. Unauthorized copying, distribution or
+use of this software, in source or binary form, is prohibited without a written license
+from Eloquix Labs.
+
+Salesforce is a trademark of Salesforce, Inc. Eloquix Labs is not affiliated with,
+endorsed by, or sponsored by Salesforce, Inc.
+
+Third-party components used at build time and their licenses:
+  libcurl        - curl license (MIT/X derivative)
+  OpenSSL        - Apache License 2.0
+  nlohmann/json  - MIT License
+  unixODBC headers - LGPL (headers only; the driver links libodbcinst)

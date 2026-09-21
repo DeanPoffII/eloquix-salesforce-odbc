@@ -1,0 +1,10 @@
+build/
+build32/
+build64/
+__pycache__/
+.pytest_cache/
+*.o
+*.so
+*.dylib
+*.dll
+*.log

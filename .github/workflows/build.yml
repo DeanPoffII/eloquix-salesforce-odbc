@@ -1,0 +1,96 @@
+name: build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ unixodbc unixodbc-dev libcurl4-openssl-dev \
+                                  libssl-dev nlohmann-json3-dev valgrind
+      - name: Build driver
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
+      - name: Build conformance harness
+        run: gcc -Wall -Wextra -o build/odbc_conformance tests/odbc_conformance.c -lodbc
+      - name: Install test dependencies
+        run: pip install pyodbc pytest
+      - name: Run tests
+        run: python3 -m pytest tests/ -q
+      - name: Check for leaks
+        run: |
+          python3 tests/mock_salesforce.py 8799 &
+          sleep 2
+          CS="DRIVER=$PWD/build/libsfodbc.so;AuthType=Password;LoginUrl=http://127.0.0.1:8799"
+          CS="$CS;ClientId=cid;ClientSecret=csecret;UID=dean@example.com;PWD=secret;SecurityToken=TOKEN123"
+          valgrind --error-exitcode=9 --leak-check=full --errors-for-leak-kinds=definite \
+            ./build/odbc_conformance "$CS"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: driver-linux-x64
+          path: build/libsfodbc.so
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install cmake unixodbc nlohmann-json openssl@3
+      - name: Build driver
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+                -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+          cmake --build build -j
+      - name: Build conformance harness
+        run: gcc -Wall -Wextra -o build/odbc_conformance tests/odbc_conformance.c \
+               -I"$(brew --prefix unixodbc)/include" -L"$(brew --prefix unixodbc)/lib" -lodbc
+      - name: Install test dependencies
+        run: pip3 install --break-system-packages pyodbc pytest
+      - name: Run tests
+        run: python3 -m pytest tests/ -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: driver-macos
+          path: build/libsfodbc.dylib
+
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            platform: x64
+          - arch: x86          # 32-bit Excel is still widespread
+            platform: Win32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '5e5d0e1cd7785623065e77eff011afdeec1a3574'
+      - name: Install dependencies
+        run: vcpkg install curl:${{ matrix.arch }}-windows openssl:${{ matrix.arch }}-windows nlohmann-json:${{ matrix.arch }}-windows
+      - name: Build driver
+        run: |
+          cmake -S . -B build -A ${{ matrix.platform }} `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake --build build --config Release
+      - name: Install test dependencies
+        run: pip install pyodbc pytest
+      - name: Run tests
+        env:
+          SFODBC_DRIVER: build\Release\EloquixSalesforceODBC.dll
+        run: python -m pytest tests/ -q -k "not conformance"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: driver-windows-${{ matrix.arch }}
+          path: build/Release/EloquixSalesforceODBC.dll
